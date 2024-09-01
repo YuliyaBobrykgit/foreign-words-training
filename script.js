@@ -46,27 +46,41 @@ const paragraphBack = document.querySelector('#card-back span');
 const btnNext = document.querySelector('#next');
 const btnBack = document.querySelector('#back');
 const btnExam = document.querySelector('#exam');
+const sliderControls = document.querySelector('.slider-controls');
 const btnShuffle = document.querySelector('#shuffle-words');
 
 const currentWordNumber = document.querySelector('#current-word');
 const examCardsContainer = document.querySelector('#exam-cards');
-const studyProgress = document.querySelector('#words-progress');
 
- 
+const studyProgress = document.querySelector('#words-progress');
+const examProgress = document.querySelector('#exam-progress');
+const examCorrectPercentage = document.querySelector('#correct-percent');
+const timer = document.querySelector('#time');
+
+
+const studyMode = document.querySelector('#study-mode');
+const examMode = document.querySelector('#exam-mode');
+
+const resultsModal = document.querySelector('.results-modal');
+const statsTime = document.querySelector('#timer');
+const statsItemTemplate = document.querySelector('#word-stats');
+const resultsContent = document.querySelector('.results-content');
 
 let cardFrontDisplayed = true;
 let cardNumber = 0;
 let cardNumbers = [];
 let studyProgressValue = 0;
+let examProgressValue = 0;
 
 let examArray = [];
 let indexArray = [];
 let examClickCounter = 0;
+let examWordsAttemptsArray = [];
 
 let selectedCardIndexNumber1 = null;
 let selectedCardIndexNumber2 = null;
 let selectedPairArr = [];
-let succedPairs = [];
+let succeedPairs = [];
 let congratsIsShown = false; // чтобы поздравление не показалось несколько раз, если пройти экзамен очень быстро
 
 // RENDERING THE STUDY PART
@@ -74,14 +88,13 @@ let congratsIsShown = false; // чтобы поздравление не пок�
 function regulateWordsProgressBar() {
     if (!cardNumbers.includes(cardNumber)) {
         cardNumbers.push(cardNumber);
-        studyProgressValue += calculateWordProgressValue();
+        studyProgressValue += calculateProgressValue(words);
         studyProgress.setAttribute('value', studyProgressValue)
     } 
 }
 
-function calculateWordProgressValue() {
-    const wordProgressStep = 100 / words.length;
-    return wordProgressStep;
+function calculateProgressValue(arr) {
+    return wordProgressStep = 100 / arr.length;
 }
 
 function renderCardFront(cardNumber = 0) {
@@ -101,7 +114,7 @@ function renderCardBack(cardNumber = 0) {
 flipCard.addEventListener('click', function flipTheCard(event) {
     if (event.currentTarget.classList.contains('flip-card')) {
         flipCard.classList.toggle('active');        
-        if (cardFrontDisplayed === true) {
+        if (cardFrontDisplayed) {
             renderCardBack(cardNumber);
         } else {
             renderCardFront(cardNumber);
@@ -127,7 +140,7 @@ function setCurrentWordNumber() {
 }
 
 function changeWord (backOrNext) {
-    if (cardFrontDisplayed === false) {
+    if (!cardFrontDisplayed) {
         flipCard.classList.toggle('active');
     } // правило, если переворачиваешь, находясь на обратной (back) стороне
     if (backOrNext === 'back') {
@@ -140,9 +153,6 @@ function changeWord (backOrNext) {
     regulateSliderBtns();
     setCurrentWordNumber()
 }
-
-btnNext.addEventListener('click', () => changeWord('next'));
-btnBack.addEventListener('click', () => changeWord('back'));
 
 // RENDERING EXAM CARDS
 
@@ -170,7 +180,7 @@ function collectAllExamCards(englishOrTranslation) {
     }
 }
 
-function renderExamCards() {// добавить штуку для того, чтобы заполнялись все вместе карточки, и только потом вставлялись на страницу
+function renderExamCards() {// добавить Fragment (не успела)
     studyCards.classList.add('hidden');
     collectAllExamCards('english');
     collectAllExamCards('translation');
@@ -211,69 +221,133 @@ function getSelectedPairIds(event) {
     const selectedCardValue = event.currentTarget.innerText;
     const selectedCardItem = event.currentTarget.closest('#exam-card');
     selectedPairArr.push(selectedCardItem);
-    if (oddClick === true) {
+    if (oddClick) {
         selectedCardIndexNumber1 = words.findIndex((wordObject) => wordObject.id === selectedCardValue ||  wordObject.translation === selectedCardValue);
         event.currentTarget.classList.add('not-clickable');
         return selectedCardIndexNumber1;
     } 
-    if (oddClick === false) { 
+    if (!oddClick) { 
         selectedCardIndexNumber2 = words.findIndex((wordObject) => wordObject.id === selectedCardValue ||  wordObject.translation === selectedCardValue);
         return selectedCardIndexNumber2;
     }
 }
 
+function createArrayOfEnglishWordAttempts(event) {
+    const key = words.findIndex((element) => element.id === event.currentTarget.innerText);
+    const existingEntry = examWordsAttemptsArray.find(obj => obj.hasOwnProperty(key)); // проверка, есть ли в массиве уже объект с таким ключом
+        if (key == -1) {
+            return;
+        } else if (!existingEntry) {
+            const examWordsAttemptsObject = {};
+            examWordsAttemptsObject[key] = 1;
+            examWordsAttemptsArray.push(examWordsAttemptsObject);
+        } else if (existingEntry) {
+            const indexInArray = examWordsAttemptsArray.indexOf(existingEntry); // ищем, какому именно объекту увеличить счетчик
+            examWordsAttemptsArray[indexInArray][key] += 1;
+        }
+        console.log(examWordsAttemptsArray)
+    return examWordsAttemptsArray;
+}
+
 function compareExamCards(event) { 
     getSelectedPairIds(event);
-    // console.log(`selectedCardIndexNumber1 - ${selectedCardIndexNumber1}`)
-    // console.log(`selectedCardIndexNumber2 - ${selectedCardIndexNumber2}`)
-    if (selectedCardIndexNumber2 === null) {
+    if (!selectedCardIndexNumber2 && selectedCardIndexNumber2 !== 0) {
         event.currentTarget.classList.add('correct');
-    } else if (selectedCardIndexNumber2 == selectedCardIndexNumber1) {
+    } else if (selectedCardIndexNumber2 === selectedCardIndexNumber1) {
         event.currentTarget.classList.add('correct');
         selectedPairArr.forEach((item) => {
             item.classList.add('fade-out');
             setTimeout(() => item.classList.add('not-visible'), 1000)
-            succedPairs.push(item);
+            succeedPairs.push(item);
+            manageExamProgressBar();
         });
-    // console.log(succedPairs)
     } else {
         event.currentTarget.classList.add('wrong');
         setTimeout (removeCorrectAndWrongClasses, 500);
     }
-    setTimeout(renderSuccessMsg, 1000)
+    createArrayOfEnglishWordAttempts(event);
+    setTimeout(renderStats, 1000)
 }
 
-btnExam.addEventListener('click', renderExamCards)
+
+function manageExamProgressBar() {
+    examProgressValue += calculateProgressValue(examArray);
+    examProgress.value = examProgressValue;
+    examCorrectPercentage.textContent = `${examProgressValue}%`;
+}
+
+function formatTimer(value) {
+    if (value < 10) {
+        return `0${value}`
+    }        
+    return value;
+}
+
+let timerId
+
+function setTimer() {
+    let ss = 0;
+    timerId = setInterval(() => {
+        ss++;
+        renderTime(ss)
+    }, 1000);
+}
+
+function renderTime(totalSs) {
+    const mm = Math.trunc(totalSs / 60);
+    const ss = totalSs % 60;
+    timer.textContent = `${formatTimer(mm)}:${formatTimer(ss)}`;
+}
+
+function takeExam() {
+    renderExamCards();
+    setTimer ();
+    studyMode.classList.add('hidden');
+    examMode.classList.remove('hidden');
+}
+
+
+sliderControls.addEventListener('click', function(event) {
+    const targetId = event.target.id;
+    switch(targetId) {
+        case 'exam': takeExam();
+            break;
+        case 'next': changeWord('next');
+            break;
+        case 'back': changeWord('back');
+        break;
+    }
+    })
 
 // SUCCESS MSG LOGIC
 
-function renderSuccessMsg() { 
-    if (congratsIsShown === false && succedPairs.length === examArray.length) {
-        alert('Congrats');
+function renderStats() { 
+    if (!congratsIsShown && succeedPairs.length === examArray.length) {
+        clearInterval(timerId);
         congratsIsShown = true;
+        setInterval(() => {resultsModal.classList.remove('hidden')}, 500);
+        renderStatsItems();
+        statsTime.textContent = timer.textContent;
         return;
     }
 }
 
-
-// btnShuffle.addEventListener('click', renderShuffledWords)
-
-// const shuffleWords = (array) => { 
-//     for (let i = array.length - 1; i > 0; i--) { 
-//       const j = Math.floor(Math.random() * (i + 1)); 
-//       [array[i], array[j]] = [array[j], array[i]]; 
-//     } 
-//     const shuffledArray = array;
-//     return shuffledArray; 
-// };
-
-// function renderShuffledWords() {
-//     shuffleWords(words);
-//     renderCardFront(cardNumber);
-//     console.log(shuffleWords(words))
-// }
-
-
-
-
-  // придумать, на что завязать
+function renderStatsItems() {
+    for (let i = 0; i < words.length; i++) { // добавить Fragment (не успела)
+        const clone = statsItemTemplate.content.cloneNode(true);
+        const statsWord = clone.querySelector('.word span');
+        statsWord.textContent = words[i].id;
+        const statsAttempts = clone.querySelector('.attempts span');
+        console.log(`i - ${i}`)
+        for (let j = 0; j < examWordsAttemptsArray.length; j++) {
+            const key = +Object.keys(examWordsAttemptsArray[j])[0]; // Получаем ключ объекта
+            console.log(`key - ${key}`)
+            if (key === i) { // Если ключ совпадает с текущим индексом в words
+                console.log('aaaa')
+                statsAttempts.textContent = examWordsAttemptsArray[j][key];
+                break;
+            }
+        }
+        resultsContent.append(clone);
+    }
+}
