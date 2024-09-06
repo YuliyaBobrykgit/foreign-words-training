@@ -48,6 +48,7 @@ const btnBack = document.querySelector('#back');
 const btnExam = document.querySelector('#exam');
 const sliderControls = document.querySelector('.slider-controls');
 const btnShuffle = document.querySelector('#shuffle-words');
+let shuffledWordsArray = null;
 
 const currentWordNumber = document.querySelector('#current-word');
 const examCardsContainer = document.querySelector('#exam-cards');
@@ -98,6 +99,7 @@ function calculateProgressValue(arr) {
 }
 
 function renderCardFront(cardNumber = 0) {
+    flipCard.classList.remove('active'); // чтобы при шаффле на обратной стороне, карточка переворачивалась лицевым боком
     headerFront.textContent = words[cardNumber].id;
     cardFrontDisplayed = true;
     regulateWordsProgressBar();
@@ -113,7 +115,7 @@ function renderCardBack(cardNumber = 0) {
 
 flipCard.addEventListener('click', function flipTheCard(event) {
     if (event.currentTarget.classList.contains('flip-card')) {
-        flipCard.classList.toggle('active');        
+        flipCard.classList.toggle('active');      
         if (cardFrontDisplayed) {
             renderCardBack(cardNumber);
         } else {
@@ -144,9 +146,11 @@ function changeWord (backOrNext) {
         flipCard.classList.toggle('active');
     } // правило, если переворачиваешь, находясь на обратной (back) стороне
     if (backOrNext === 'back') {
+        // shuffledWordIndex = null;
         cardNumber -= 1; 
         renderCardFront(cardNumber);
     } else {
+        // shuffledWordIndex = null;
         cardNumber += 1;
         renderCardFront(cardNumber);
     }
@@ -245,7 +249,6 @@ function createArrayOfEnglishWordAttempts(event) {
             const indexInArray = examWordsAttemptsArray.indexOf(existingEntry); // ищем, какому именно объекту увеличить счетчик
             examWordsAttemptsArray[indexInArray][key] += 1;
         }
-        console.log(examWordsAttemptsArray)
     return examWordsAttemptsArray;
 }
 
@@ -338,16 +341,36 @@ function renderStatsItems() {
         const statsWord = clone.querySelector('.word span');
         statsWord.textContent = words[i].id;
         const statsAttempts = clone.querySelector('.attempts span');
-        console.log(`i - ${i}`)
         for (let j = 0; j < examWordsAttemptsArray.length; j++) {
             const key = +Object.keys(examWordsAttemptsArray[j])[0]; // Получаем ключ объекта
-            console.log(`key - ${key}`)
             if (key === i) { // Если ключ совпадает с текущим индексом в words
-                console.log('aaaa')
                 statsAttempts.textContent = examWordsAttemptsArray[j][key];
                 break;
             }
         }
         resultsContent.append(clone);
     }
+}
+
+
+
+btnShuffle.addEventListener('click', () => renderShuffledWords(words))
+
+function verifyIfShuffled() {
+    if (shuffledWordsArray) {
+        words = shuffledWordsArray;
+    }
+    return words;
+}
+
+
+function renderShuffledWords(arr) {
+    for (let i = arr.length - 1; i > 0 ; i--) { 
+        const j = Math.floor(Math.random() * (i + 1)); 
+        [arr[i], arr[j]] = [arr[j], arr[i]]; 
+    } 
+    const shuffledWordsArray = arr; 
+    verifyIfShuffled();
+    renderCardFront(cardNumber);
+    return shuffledWordsArray;
 }
